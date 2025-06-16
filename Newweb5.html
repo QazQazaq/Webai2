@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Interview Voicebot</title>
+</head>
+<body>
+  <h2>🎤 Interview Voicebot</h2>
+  <p>Click Start and ask a question like: <i>"What’s your #1 superpower?"</i></p>
+  <button onclick="startListening()">🎙️ Start Listening</button>
+  <button onclick="stopListening()">🛑 Stop Listening</button>
+  <div id="output" style="margin-top: 20px; font-size: 18px;"></div>
+
+  <script>
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    function startListening() {
+      recognition.start();
+      document.getElementById("output").innerText = "Listening...";
+    }
+
+    function stopListening() {
+      recognition.stop();
+      document.getElementById("output").innerText = "Stopped listening.";
+    }
+
+    recognition.onspeechend = () => {
+      recognition.stop();
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+      document.getElementById("output").innerText = `Error: ${event.error}`;
+    };
+
+    recognition.onresult = async (event) => {
+      const userInput = event.results[0][0].transcript;
+      document.getElementById("output").innerText = `You said: "${userInput}"\nThinking...`;
+
+      const response = await getGPTResponse(userInput);
+      document.getElementById("output").innerText = `You said: "${userInput}"\nBot: ${response}`;
+      speak(response);
+    };
+
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      window.speechSynthesis.speak(utterance);
+    }
+
+    async function getGPTResponse(userInput) {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer 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" // ← Your personal API key here
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [{ role: "user", content: userInput }]
+        })
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("API Error:", res.status, errorText);
+        return "Sorry, something went wrong. Please check your API key.";
+      }
+
+      const data = await res.json();
+      return data.choices[0].message.content;
+    }
+  </script>
+</body>
+</html>
